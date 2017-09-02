@@ -2,11 +2,13 @@
 
 import os
 import math
+import requests
+import json
 from sqlalchemy import *
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, scoped_session, sessionmaker, object_session
 from sqlalchemy.sql import func
-from datetime import datetime
+from datetime import datetime, timedelta
 
 engine = create_engine("mysql+mysqldb://{0}:{1}@{2}/?charset=utf8"
                        .format(os.getenv('SSS_DB_USER'), os.getenv('SSS_DB_PASS'), os.getenv('SSS_DB_HOST')),
@@ -34,6 +36,7 @@ class TiltSensor(Base):
     threshold = Column(Float)
     mac = Column(String(32))
     data = relationship('TiltSensorData', backref='sensor', lazy='dynamic')
+    hysteresis_at = Column(DateTime, default=datetime.now() - timedelta(hours=3))
 
 
     def save_data(self, data):
@@ -41,13 +44,46 @@ class TiltSensor(Base):
 
 
     def is_over_threshold(self):
-        latest = self.latest()
+        latest = self.latest_data()
         return latest.tilt_x > self.threshold or latest.tilt_y > self.threshold
 
 
-    def latest(self):
-        latest = self.data.order_by(TiltSensorData.id.desc()).first()
-        return latest
+    def latest_data(self):
+        return self.data.order_by(TiltSensorData.id.desc()).first()
+
+
+    def is_hysteresis(self):
+        return self.hysteresis_at > datetime.now() - timedelta(hours=2)
+
+
+    def latest_node_state(self):
+        return self.latest_data().node_state
+
+
+    def latest_table_id(self):
+        return self.latest_data().table_id
+
+
+    def change_table(self, val):
+        url = os.getenv('SSS_DB_HOST')
+        data = {
+            'TiltPattarnCode': [
+                { 'DeviceId': self.mac, 'Val': val }
+            ]
+        }
+
+        response = requests.post(
+            url,
+            json.dumps(data),
+            cert=('./client.crt', './client.key'),
+            verify=False,
+            headers={'Content-Type': 'application/json'}
+        )
+
+        print("{0}".format(response.json()))
+
+        return response.json()
+
 
 
 class TiltSensorData(Base):
@@ -62,7 +98,7 @@ class TiltSensorData(Base):
     tilt_x = Column(Float)
     tilt_y = Column(Float)
     tempereture = Column(Float)
-    threshold = Column(Integer)
+    table_id = Column(Integer)
 
 
 class SoilSensor(Base):
@@ -129,11 +165,10 @@ def reset_table():
     create_table()
 
 def add_tilt_sensor(name, mac, threshold):
-    new_sensor = TiltSensor(name=name, mac=mac, threshold=threshold)
+    new_sensor = TiltSensor(name=name, mac=mac.upper(), threshold=threshold)
     session = Session()
     session.add(new_sensor)
     session.commit()
-    sssion.close()
 
 
 # id, mac, receive time, node id, node state, battery voltage, number of observed data,
@@ -150,7 +185,7 @@ def add_tilt_data(sid, data):
             tilt_x=float(data[8 + 5 * i]),
             tilt_y=float(data[9 + 5 * i]),
             tempereture=float(data[10 + 5 * i]),
-            threshold=int(data[11 + 5 * i])
+            table_id=int(data[11 + 5 * i])
         )
         session.add(new_data)
     session.commit()
@@ -230,7 +265,7 @@ def get_sensor(type_id, mac):
         current_sensor = session.query(TiltSensor).filter(TiltSensor.mac==mac).first()
     elif type_id == '52652': # soil sensor
         current_sensor = session.query(SoilSensor).filter(SoilSensor.mac==mac).first()
-    elif type_id is '0': # weather sernsor
+    elif type_id == '0': # weather sernsor
         raise ValueError("weather sensor is not defined yet")
         pass
     else:

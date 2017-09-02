@@ -3,14 +3,15 @@
 import db
 import json
 import paho.mqtt.client as mqtt
+
 from datetime import datetime
 from sqlalchemy import *
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 Event = {
-    'normal': 0,
-    'caution': 1,
-    'alert': 2
+    'normal': 0L,
+    'caution': 1L,
+    'alert': 2L
 }
 
 
@@ -33,8 +34,9 @@ def detect(data):
     db.add_event(current_event)
     # 前回と同じイベントの場合かつ傾斜センサのデータの場合，傾斜センサの閾値選択をする
     previous_event = db.get_previous_event().state
-    if current_event is previous_event and data[0] is '52660':
-         choose_threshold(data, current_event)
+    import pdb; pdb.set_trace()
+    if current_event == previous_event and data[0] == '52660' and not sensor.is_hysteresis():
+         choose_threshold(sensor, current_event)
 
     return { 'event': current_event }
 
@@ -73,17 +75,17 @@ def detect_by_algo():
         return Event['normal']
 
 
-
-def choose_threshold(data, current_event):
-    sensor_state = data[4]
+# 本来はFeedbackかける人と検知する人をわけたいが，とりあえずここでフィードバックをかける
+def choose_threshold(sensor, current_event):
+    sensor_state = sensor.latest_node_state()
     if current_event > sensor_state:
         # イベント検知結果よりセンサの検知結果の方が厳しく判定している
         # 閾値をゆるめる方向に進める
-        pass
+        loose_threshold(sensor)
     elif current_event < sensor_state:
         # イベント検知結果よりセンサの検知結果の方がゆるく判定している
-        # センサの状態をイベント検知結果にあわせる
-        pass
+        # 閾値を厳しくする方向に進める
+        bind_threshold(sensor)
 
 
 def alpha(tilt_senosor, c=1.0, d=1.0):
@@ -98,3 +100,27 @@ def alpha(tilt_senosor, c=1.0, d=1.0):
     alpha_y = 1.0 + c * abs(last.tilt_y) * (1 + d * sign(diff_y))
 
     return alpha_x * abs(diff_x) + alpha_y * abs(diff_y)
+
+
+def loose_threshold(sensor):
+    table_id = sensor.latest_table_id()
+    if table_id == 0:
+        sensor.change_table(4)
+    elif table_id == 4:
+        sensor.change_table(5)
+    elif table_id == 5:
+        sensor.change_table(8)
+    elif table_id == 8:
+        sensor.change_table(9)
+
+
+def bind_threshold(sensor):
+    table_id = sensor.latest_table_id()
+    if table_id == 4:
+        sensor.change_table(0)
+    elif table_id == 5:
+        sensor.change_table(4)
+    elif table_id == 8:
+        sensor.change_table(5)
+    elif table_id == 9:
+        sensor.change_table(8)
