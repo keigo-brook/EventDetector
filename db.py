@@ -187,7 +187,9 @@ def add_tilt_sensor(name, mac, threshold):
 # id, mac, receive time, node id, node state, battery voltage, number of observed data,
 # [observed time, tilt axis x, tilt axis y, sensor unit temperetur, tilt threshold] * number of observed data
 def add_tilt_data(sid, data):
+    print("save data: {0}".format(data))
     num_of_data = int(data[6])
+    print("num of data: {0}".format(num_of_data))
     for i in range(num_of_data):
         new_data = TiltSensorData(
             sensor_id=sid,
@@ -297,3 +299,8 @@ def get_soil_sensor():
 
 def get_previous_event():
     return session.query(Event).order_by(Event.id.desc()).first()
+
+
+def check_event_changed(new_event):
+    prev_event = get_previous_event()
+    return prev_event.state != new_event

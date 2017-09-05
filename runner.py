@@ -23,10 +23,13 @@ def on_connect(client, data, flags, response_code):
 
 
 def on_message(client, data, msg):
-    data = msg.payload.split(',')
-    event = detector.detect(data)
-    client.publish(event_topic, json.dumps(event))
     print('Received: {0} {1}'.format(msg.topic, msg.payload))
+    new_data = msg.payload.split(',')
+    event = detector.detect(new_data)
+
+    # イベントが変わっていた場合のみpublish
+    if event['changed']:
+        client.publish(event_topic, json.dumps(event))
     print("Event: {0}".format(event))
 
 

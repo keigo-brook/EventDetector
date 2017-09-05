@@ -19,25 +19,28 @@ def detect(data):
     # データからセンサの種類を特定し，データを保存
     sensor = db.get_sensor(data[0], data[1])
     if sensor is None:
-        raise ValueError("the sensor is unknown, port: {0}, mac: '{1}' is unknown".format(data[0], data[1]))
+        raise ValueError("the sensor is unknown, port: {0}, mac: '{1}'".format(data[0], data[1]))
     sensor.save_data(data)
 
     # しきい値を超えていたら強制的に警戒モード
     if sensor.is_over_threshold():
         current_event = Event['alert']
+        changed = db.check_event_changed(current_event)
         db.add_event(current_event)
         print('Over the threshold')
-        return { 'event': current_event }
+        return { "event": current_event, "changed": changed }
 
     # 検知アルゴリズムを用いて状態判定
     current_event = detect_by_algo()
+    changed = db.check_event_changed(current_event)
     db.add_event(current_event)
+
     # 前回と同じイベントの場合かつ傾斜センサのデータの場合，傾斜センサの閾値選択をする
     previous_event = db.get_previous_event().state
     if current_event == previous_event and data[0] == '52660' and not sensor.is_hysteresis():
          choose_threshold(sensor, current_event)
 
-    return { 'event': current_event }
+    return { "event": current_event, "changed": changed }
 
 
 def detect_by_algo():
