@@ -88,14 +88,10 @@ def choose_threshold(sensor, current_event):
         bind_threshold(sensor)
 
 
-def alpha(tilt_senosor, c=1.0, d=1.0):
-    last, last_one = tilt_senosor.data.order_by(db.TiltSensorData.id.desc()).limit(2)
-    if last == None or last_one == None:
-        return 0.0
-
+def alpha(tilt_sensor, c=1.0, d=1.0):
     sign = lambda x: 1 if x >= 0.0 else -1.0
-    diff_x = last.tilt_x - last_one.tilt_x
-    diff_y = last.tilt_y - last_one.tilt_y
+    last = tilt_sensor.latest_data()
+    diff_x, diff_y = tilt_sensor.latest_diff()
     alpha_x = 1.0 + c * abs(last.tilt_x) * (1 + d * sign(diff_x))
     alpha_y = 1.0 + c * abs(last.tilt_y) * (1 + d * sign(diff_y))
 

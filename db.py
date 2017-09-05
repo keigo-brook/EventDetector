@@ -52,6 +52,17 @@ class TiltSensor(Base):
         return self.data.order_by(TiltSensorData.id.desc()).first()
 
 
+    def latest_diff(self):
+        last_two = self.data.order_by(TiltSensorData.id.desc()).limit(2).all
+        if len(last_two) < 2:
+            return 0.0, 0.0
+
+        diff_x = last_two[0].tilt_x - last_two[1].tilt_x
+        diff_y = last_two[0].tilt_y - last_two[1].tilt_y
+
+        return diff_x, diff_y
+
+
     def is_hysteresis(self):
         return self.hysteresis_at > datetime.now() - timedelta(hours=2)
 
@@ -129,7 +140,8 @@ class SoilSensor(Base):
         last_two = self.data.order_by(SoilSensorData.id.desc()).limit(2).all()
         if len(last_two) < 2:
             return 0.0
-        return last.moisture - last_one.moisture
+
+        return last_two[0].moisture - last_two[1].moisture
 
 
     def min(self):
