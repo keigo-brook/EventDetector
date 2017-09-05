@@ -65,6 +65,7 @@ class TiltSensor(Base):
 
 
     def change_table(self, val):
+        print("change sensor {0} status from {1} to {2}".format(self.id, self.latest_node_state, val))
         url = os.getenv('SSS_DB_HOST')
         data = {
             'TiltPattarnCode': [
