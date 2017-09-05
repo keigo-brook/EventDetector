@@ -149,7 +149,7 @@ class SoilSensor(Base):
         return min_moisture.moisture
 
 
-
+class SoilSensorData(Base):
     __tablename__ = 'soil_sensor_data'
     id = Column(Integer, primary_key=True)
     sensor_id = Column(Integer,
