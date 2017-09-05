@@ -34,7 +34,6 @@ def detect(data):
     db.add_event(current_event)
     # 前回と同じイベントの場合かつ傾斜センサのデータの場合，傾斜センサの閾値選択をする
     previous_event = db.get_previous_event().state
-    import pdb; pdb.set_trace()
     if current_event == previous_event and data[0] == '52660' and not sensor.is_hysteresis():
          choose_threshold(sensor, current_event)
 

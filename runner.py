@@ -27,6 +27,7 @@ def on_message(client, data, msg):
     event = detector.detect(data)
     client.publish(event_topic, json.dumps(event))
     print('Received: {0} {1}'.format(msg.topic, msg.payload))
+    print("Event: {0}".format(event))
 
 
 def main():
