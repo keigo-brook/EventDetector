@@ -53,7 +53,7 @@ class TiltSensor(Base):
 
 
     def latest_diff(self):
-        last_two = self.data.order_by(TiltSensorData.id.desc()).limit(2).all
+        last_two = self.data.order_by(TiltSensorData.id.desc()).limit(2).all()
         if len(last_two) < 2:
             return 0.0, 0.0
 
