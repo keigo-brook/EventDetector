@@ -9,6 +9,17 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, scoped_session, sessionmaker, object_session
 from sqlalchemy.sql import func
 from datetime import datetime, timedelta
+from logging import getLogger, FileHandler, StreamHandler, DEBUG
+ 
+logger = getLogger(__name__)
+if not logger.handlers:
+    fileHandler = FileHandler(r'./log/db.log')
+    fileHandler.setLevel(DEBUG)
+    streamHander = StreamHandler()
+    streamHander.setLevel(DEBUG)
+    logger.setLevel(DEBUG)
+    logger.addHandler(fileHandler)
+    logger.addHandler(streamHander)
 
 engine = create_engine("mysql+mysqldb://{0}:{1}@{2}/social_sensor_server?charset=utf8"
                        .format(os.getenv('SSS_DB_USER'), os.getenv('SSS_DB_PASS'), os.getenv('SSS_DB_HOST')),
@@ -80,7 +91,7 @@ class TiltSensor(Base):
 
 
     def change_table(self, val):
-        print("change sensor {0} table_id from {1} to {2}".format(self.id, self.latest_table_id(), val))
+        logger.info("change sensor {0} table_id from {1} to {2}".format(self.id, self.latest_table_id(), val))
         url = os.getenv('SSS_FB_HOST')
         data = {
             'TiltPattarnCode': [
@@ -98,7 +109,7 @@ class TiltSensor(Base):
         #        headers={'Content-Type': 'application/json'}
         #    )
         command = 'curl -vk --key client.key --cert client.crt -H Content-Type:application/json -d \'{{"TiltPattarnCode":[{{"DeviceId":"{0}","Val":{1}}}]}}\' https://54.65.160.111:8443'.format(self.mac, val)
-        print(command)
+        logger.info(command)
         os.system(command)
         #    print("{0}".format(response))
 	#except requests.exceptions.ConnectionError:
@@ -198,9 +209,9 @@ def add_tilt_sensor(name, mac, threshold):
 # id, mac, receive time, node id, node state, battery voltage, number of observed data,
 # [observed time, tilt axis x, tilt axis y, sensor unit temperetur, tilt threshold] * number of observed data
 def add_tilt_data(sid, data):
-    print("save data: {0}".format(data))
+    logger.info("save data: {0}".format(data))
     num_of_data = int(data[6])
-    print("num of data: {0}".format(num_of_data))
+    logger.info("num of data: {0}".format(num_of_data))
     for i in range(num_of_data):
         new_data = TiltSensorData(
             sensor_id=sid,
