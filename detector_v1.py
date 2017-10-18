@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import os
 import db
 import json
 import paho.mqtt.client as mqtt
@@ -41,17 +41,9 @@ def detect(data):
         print("Sensor hysteresis at: {0}".format(sensor.hysteresis_at))
     elif data[0] == '52660':
         if current_event == previous_event:
-            #choose_threshold(sensor, current_event)
-            pass
+            choose_threshold(sensor, current_event)
 
-        if sensor.latest_node_state() != current_event:
-            if current_event == 2:
-                sensor.change_table(1)
-            elif current_event == 1:
-                sensor.change_table(2)
-            elif current_event == 0:
-                sensor.change_table(3)
-
+    # イベントを保存
     db.add_event(current_event, y)
     return { "event": current_event, "changed": changed }
 
@@ -60,12 +52,12 @@ def detect_by_algo():
     """
     最新のデータを用いて検知アルゴリズムによりイベント検知
     """
-    # すべての傾斜センサの合計の重みsを計算
+    # すべてのアクティブな傾斜センサの合計の重みsを計算
     s = 0.0
     tilt_sensors = db.get_all_tilt_sensors()
     delta = 1.0 # 時間間隔
     c = 1.0 # 傾斜センサの重み
-    d = 1.0 #
+    d = 1.0 # 同上
     for tilt_sensor in tilt_sensors:
         current_alpha = alpha(tilt_sensor, c, d)
         s += current_alpha / delta
@@ -81,16 +73,15 @@ def detect_by_algo():
     print("y: {0}, a: {1}, s: {2}".format(y, a, s))
 
     # yをもちいてイベントを決定
-    # TODO: 最適な閾値を求める
-    if y > 5:
+    if y > os.getenv('Y_ALERT_THRESHOLD'):
         return Event['alert'], y
-    elif y > 2.5:
+    elif y > os.getenv('Y_CAUTION_THRESHOLD'):
         return Event['caution'], y
     else:
         return Event['normal'], y
 
 
-# 本来はFeedbackかける人と検知する人をわけたいが，とりあえずここでフィードバックをかける
+# 本来はFeedbackかけるプロセスと検知するプロセスをわけたいが，とりあえずここでフィードバックをかける
 def choose_threshold(sensor, current_event):
     sensor_state = sensor.latest_node_state()
     if current_event < sensor_state:
@@ -131,6 +122,7 @@ def bind_threshold(sensor):
         sensor.change_table(0)
     elif table_id == 5:
         sensor.change_table(4)
+
     elif table_id == 8:
         sensor.change_table(5)
     elif table_id == 9:
