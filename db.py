@@ -10,11 +10,11 @@ from sqlalchemy.orm import relationship, scoped_session, sessionmaker, object_se
 from sqlalchemy.sql import func
 from datetime import datetime, timedelta
 
-engine = create_engine("mysql+mysqldb://{0}:{1}@{2}/?charset=utf8"
+engine = create_engine("mysql+mysqldb://{0}:{1}@{2}/social_sensor_server?charset=utf8"
                        .format(os.getenv('SSS_DB_USER'), os.getenv('SSS_DB_PASS'), os.getenv('SSS_DB_HOST')),
                        echo=False, pool_recycle=3600)
-engine.execute("CREATE DATABASE IF NOT EXISTS social_sensor_server")
-engine.execute("USE social_sensor_server;")
+#engine.execute("CREATE DATABASE IF NOT EXISTS social_sensor_server")
+#engine.execute("USE social_sensor_server;")
 
 Base = declarative_base()
 
@@ -27,6 +27,7 @@ class Event(Base):
     id = Column(Integer, primary_key=True)
     state = Column(Integer)
     created_at = Column(DateTime, default=datetime.now())
+    y = Column(Float)
 
 
 class TiltSensor(Base):
@@ -41,6 +42,9 @@ class TiltSensor(Base):
 
     def save_data(self, data):
         add_tilt_data(self.id, data)
+        if self.latest_node_state() == 2 and not self.is_hysteresis():
+            update_hysteresis(self.id)
+        
 
 
     def is_over_threshold(self):
@@ -76,25 +80,32 @@ class TiltSensor(Base):
 
 
     def change_table(self, val):
-        print("change sensor {0} status from {1} to {2}".format(self.id, self.latest_node_state, val))
-        url = os.getenv('SSS_DB_HOST')
+        print("change sensor {0} table_id from {1} to {2}".format(self.id, self.latest_table_id(), val))
+        url = os.getenv('SSS_FB_HOST')
         data = {
             'TiltPattarnCode': [
                 { 'DeviceId': self.mac, 'Val': val }
             ]
         }
 
-        response = requests.post(
-            url,
-            json.dumps(data),
-            cert=('./client.crt', './client.key'),
-            verify=False,
-            headers={'Content-Type': 'application/json'}
-        )
-
-        print("{0}".format(response.json()))
-
-        return response.json()
+        #print("{0}".format(json.dumps(data)))
+	#try:
+        #    response = requests.post(
+        #        url,
+        #        json.dumps(data),
+        #        cert=('./client.crt', './client.key'),
+        #        verify=False,
+        #        headers={'Content-Type': 'application/json'}
+        #    )
+        command = 'curl -vk --key client.key --cert client.crt -H Content-Type:application/json -d \'{{"TiltPattarnCode":[{{"DeviceId":"{0}","Val":{1}}}]}}\' https://54.65.160.111:8443'.format(self.mac, val)
+        print(command)
+        os.system(command)
+        #    print("{0}".format(response))
+	#except requests.exceptions.ConnectionError:
+        #    print("Connection Error()")
+        #    return ""
+        update_hysteresis(self.id)
+        return True
 
 
 
@@ -230,11 +241,17 @@ def add_soil_data(sid, data):
     session.commit()
 
 
-def add_event(event):
-    new_event = Event(state=event)
+def add_event(event, y):
+    new_event = Event(state=event, created_at=datetime.now(), y=y)
     session.add(new_event)
     session.commit()
 
+
+def update_hysteresis(sid):
+    sensor = session.query(TiltSensor).filter(TiltSensor.id==sid).first()
+    sensor.hysteresis_at = datetime.now()
+    session.commit()
+    
 
 
 def create_test_sensor():
