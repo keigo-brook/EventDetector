@@ -36,12 +36,14 @@ def on_message(client, data, msg):
     new_data = msg.payload.split(',')
     event = detector.detect(new_data)
 
-    # イベントが変わっていた場合のみpublish
     if event == None:
         logger.info("Event None")
     elif event['changed']:
         client.publish(event_topic, json.dumps(event))
         logger.info("Publisheed: {0}".format(event))
+    else:
+        client.publish(event_topic, json.dumps(event))
+        logger.info("Not changed: {0}".format(event))
 
 
 def main():

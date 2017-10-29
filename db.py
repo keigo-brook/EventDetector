@@ -60,7 +60,7 @@ class TiltSensor(Base):
 
     def is_over_threshold(self):
         latest = self.latest_data()
-        return latest.tilt_x > self.threshold or latest.tilt_y > self.threshold
+        return abs(latest.tilt_x) > self.threshold or abs(latest.tilt_y) > self.threshold
 
 
     def latest_data(self):
@@ -150,7 +150,8 @@ class SoilSensor(Base):
 
     def is_over_threshold(self):
         latest = self.latest()
-        latest.moisture > self.threshold
+        logger.info("{0} {1}".format(latest.moisture, self.threshold))
+        return latest.moisture > self.threshold
 
 
     def latest(self):
