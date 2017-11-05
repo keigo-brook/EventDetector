@@ -26,7 +26,7 @@ Event = {
 }
 
 FieldTiltSensors = {
-    'A': os.getenv('FIELD_TILT_MAC_E'),
+    'A': os.getenv('FIELD_TILT_MAC_A'),
     'B': os.getenv('FIELD_TILT_MAC_B'),
     'C': os.getenv('FIELD_TILT_MAC_C'),
     'D': os.getenv('FIELD_TILT_MAC_D'),
@@ -38,18 +38,21 @@ FieldTiltSensors = {
 def detect(data):
     logger.info("########## received {0} ##########\n".format(datetime.now()) + str(data))
     # データからセンサの種類を特定し，データを保存
-    if data[0] == '0' and data[3] == '$WIXDR' and float(data[13]) > 30.0:
-        current_event = Event['alert']
-        changed = db.check_event_changed(current_event)
-        sensor = db.get_sensor('52660', FieldTiltSensors['E'])
-        if sensor is not None:
-            change_sensors_table(sensor, 1)
-        sensor = db.get_sensor('52660', FieldTiltSensors['A'])
-        if sensor is not None:
-            change_sensors_table(sensor, 1)
-        db.add_event(current_event, -1)
-        logger.info('Weather Over the threshold')
-        return { "event": current_event, "changed": changed }
+    if data[0] == '0':
+        if data[3] == '$WIXDR' and float(data[13]) > 30.0:
+            current_event = Event['alert']
+            changed = db.check_event_changed(current_event)
+            sensor = db.get_sensor('52660', FieldTiltSensors['E'])
+            if sensor is not None:
+                change_sensors_table(sensor, 1)
+            sensor = db.get_sensor('52660', FieldTiltSensors['A'])
+            if sensor is not None:
+                change_sensors_table(sensor, 1)
+            db.add_event(current_event, -1)
+            logger.info('Weather Over the threshold')
+            return { "event": current_event, "changed": changed }
+        else:
+            return { "changed": False }
     
         
     sensor = db.get_sensor(data[0], data[1])
@@ -70,7 +73,12 @@ def detect(data):
         change_sensors_table(sensor, 1)
         db.add_event(current_event, -1)
         logger.info('Over the threshold')
-        return { "event": current_event, "changed": changed }
+        e = { "event": current_event, "changed": changed }
+        if sensor.mac == FieldTiltSensors['E']:
+            e['sensor'] = 'E'
+        else:
+            e['sensor'] = 'ABCD'
+        return e
 
     # 検知アルゴリズムを用いて状態判定
     current_event, y = detect_by_algo(sensor)
@@ -79,6 +87,7 @@ def detect(data):
 
     # 前回と同じイベントの場合かつ傾斜センサのデータの場合，傾斜センサの閾値選択をする
     previous_event = db.get_previous_event().state
+    e = { "event": current_event, "changed": changed }
     if data[0] == '52660':
         logger.info("Event: {0} -> {1}, Sensor state: {2}".format(previous_event, current_event, sensor.latest_node_state()))
         if sensor.is_hysteresis():
@@ -95,12 +104,17 @@ def detect(data):
                 change_sensors_table(sensor, 2)
             elif current_event == 0:
                 change_sensors_table(sensor, 8)
+        if sensor.mac == FieldTiltSensors['E']:
+            e['sensor'] = 'E'
+        else:
+            e['sensor'] = 'ABCD'
     elif data[0] == '52652':
         logger.info("Event: {0} -> {1}, Soil sensor".format(previous_event, current_event))
+        e['sensor'] = 'SOIL'
         
     # イベントを保存
     db.add_event(current_event, y)
-    return { "event": current_event, "changed": changed }
+    return e
 
 
 def detect_by_algo(sensor):
@@ -214,21 +228,17 @@ def change_sensors_table(sensor, table_id):
 
 def change_group_table(table_id):
     sensor = db.get_sensor('52660', FieldTiltSensors['A'])
-    if sensor is None:
-        return
-    sensor.change_table(table_id)
+    if sensor is not None:
+        sensor.change_table(table_id)
 
     sensor = db.get_sensor('52660', FieldTiltSensors['B'])
-    if sensor is None:
-        return
-    sensor.change_table(table_id)
+    if sensor is not None:
+        sensor.change_table(table_id)
 
     sensor = db.get_sensor('52660', FieldTiltSensors['C'])
-    if sensor is None:
-        return
-    sensor.change_table(table_id)
+    if sensor is not None:
+        sensor.change_table(table_id)
 
     sensor = db.get_sensor('52660', FieldTiltSensors['D'])
-    if sensor is None:
-        return
-    sensor.change_table(table_id)
+    if sensor is not None:
+        sensor.change_table(table_id)

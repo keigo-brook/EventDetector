@@ -4,6 +4,7 @@ import os
 import math
 import requests
 import json
+import time
 from sqlalchemy import *
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, scoped_session, sessionmaker, object_session
@@ -110,7 +111,9 @@ class TiltSensor(Base):
         #    )
         command = 'curl -vk --key client.key --cert client.crt -H Content-Type:application/json -d \'{{"TiltPattarnCode":[{{"DeviceId":"{0}","Val":{1}}}]}}\' https://54.65.160.111:8443'.format(self.mac, val)
         logger.info(command)
-        os.system(command)
+        for _ in range(1):
+            os.system(command)
+            time.sleep(0.5)
         #    print("{0}".format(response))
 	#except requests.exceptions.ConnectionError:
         #    print("Connection Error()")
