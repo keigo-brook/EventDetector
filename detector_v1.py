@@ -53,8 +53,7 @@ def detect(data):
             return { "event": current_event, "changed": changed }
         else:
             return { "changed": False }
-    
-        
+
     sensor = db.get_sensor(data[0], data[1])
     if sensor is None:
         if data[0] == '52660':
@@ -111,7 +110,7 @@ def detect(data):
     elif data[0] == '52652':
         logger.info("Event: {0} -> {1}, Soil sensor".format(previous_event, current_event))
         e['sensor'] = 'SOIL'
-        
+
     # イベントを保存
     db.add_event(current_event, y)
     return e
